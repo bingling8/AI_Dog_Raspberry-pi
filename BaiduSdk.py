@@ -4,7 +4,7 @@ from aip import AipSpeech
 
 APP_ID = '32600665'  # 百度AI平台申请后换为自己的，下同
 API_KEY = 'MzOPWG96SzBf5Z3C98gP22FG'
-SECRET_KEY = 'VXCR3w4BvzYmP9z7quIUU7czYxTjQfrm'
+SECRET_KEY = '#########'
 client = AipSpeech(APP_ID, API_KEY, SECRET_KEY)
 
 
