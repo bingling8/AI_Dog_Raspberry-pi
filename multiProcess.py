@@ -3,6 +3,8 @@ import multiprocessing
 import tulingRobot
 import snowBoy
 import time
+import faceRecog
+import status
 
 def face_chat():
     # when face over, chat will over
@@ -29,15 +31,19 @@ def watch_listen():
         listen.start()
         print('listening...')
 
-        # watch = multiprocessing.Process(target=faceRecog.watch, args=(event,))
-        # watch.daemon = True
-        # watch.start()
-        # print('watching...')
+        watch = multiprocessing.Process(target=faceRecog.watch, args=(event,))
+        watch.daemon = True
+        watch.start()
+        print('watching...')
+
+        status.write0()
 
         event.wait()
         print('waited')
-        listen.terminate()
-        # watch.terminate()
+        if listen.is_alive():
+            listen.terminate()
+        if watch.is_alive():
+            watch.terminate()
         print('terminated')
         time.sleep(1.24)
         face_chat()
@@ -45,3 +51,4 @@ def watch_listen():
         time.sleep(1.24)
 
 # face_chat()
+
