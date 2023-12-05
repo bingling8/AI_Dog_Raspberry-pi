@@ -13,11 +13,13 @@ import time
 
 import os
 
+import Play_mp3
+
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 16000
 CHUNK_DURATION_MS = 30       # supports 10, 20 and 30 (ms)
-PADDING_DURATION_MS = 1500   # 1 sec jugement
+PADDING_DURATION_MS = 1500  # 1 sec jugement
 CHUNK_SIZE = int(RATE * CHUNK_DURATION_MS / 1000)  # chunk to read
 CHUNK_BYTES = CHUNK_SIZE * 2  # 16bit = 2 bytes, PCM
 NUM_PADDING_CHUNKS = int(PADDING_DURATION_MS / CHUNK_DURATION_MS)
@@ -27,6 +29,20 @@ NUM_WINDOW_CHUNKS_END = NUM_WINDOW_CHUNKS * 2
 
 START_OFFSET = int(NUM_WINDOW_CHUNKS * CHUNK_DURATION_MS * 0.5 * RATE)
 CHUNK = 512
+
+END_POINT_DETECTION_FACTOR = 0.90
+TIME_USED_MAX=30
+PAUSE_TIME=3 #end point ends with a delay of 3s
+NO_TIME=248
+
+def end_point_detection_factor_init(factor,time,no_time):
+    global END_POINT_DETECTION_FACTOR,TIME_USED_MAX,NO_TIME
+    END_POINT_DETECTION_FACTOR = factor
+    TIME_USED_MAX = time
+    NO_TIME=no_time
+    
+    
+    
 
 
 def handle_int(sig, chunk):
@@ -92,6 +108,10 @@ def record_sound():
         StartTime = time.time()
         print("* recording: ")
         stream.start_stream()
+        
+        first_unvoiced=True
+        first_unvoiced_time=time.time()
+        unvoiced_time_use=0
 
         while not got_a_sentence and not leave:
             chunk = stream.read(CHUNK_SIZE)
@@ -101,13 +121,13 @@ def record_sound():
             TimeUse = time.time() - StartTime
 
             active = vad.is_speech(chunk, RATE)
-
+            
             if not active:
                 no_time += 1
             else:
                 no_time = 0
 
-            if no_time >= 248:
+            if no_time >= 744:
                 stream.close()
                 return False
 
@@ -135,7 +155,21 @@ def record_sound():
                 # voiced_frames.append(chunk)
                 ring_buffer.append(chunk)
                 num_unvoiced = NUM_WINDOW_CHUNKS_END - sum(ring_buffer_flags_end)
-                if num_unvoiced > 0.90 * NUM_WINDOW_CHUNKS_END or TimeUse > 10:
+                if first_unvoiced and num_unvoiced == NUM_WINDOW_CHUNKS_END:
+                    first_unvoiced_time=time.time()
+                    first_unvoiced=False
+                    
+                if not first_unvoiced and num_unvoiced < NUM_WINDOW_CHUNKS_END:
+                    unvoiced_time_use=0
+                    first_unvoiced=True
+                
+                if not first_unvoiced:
+                    unvoiced_time_use=time.time()-first_unvoiced_time
+ 
+                #print('num_unvoiced: '+str(num_unvoiced))
+                #print('timeuse: '+str(TimeUse))
+                # print('unvoiced_time_use: '+str(unvoiced_time_use))
+                if num_unvoiced > END_POINT_DETECTION_FACTOR * NUM_WINDOW_CHUNKS_END or unvoiced_time_use > PAUSE_TIME or TimeUse > TIME_USED_MAX:
                     sys.stdout.write(' Close ')
                     triggered = False
                     got_a_sentence = True
@@ -171,7 +205,8 @@ def play_sound(file_path='temp.wav'):
     stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
                     channels=wf.getnchannels(),
                     rate=wf.getframerate(),
-                    output=True)
+                    output=True,
+                    frames_per_buffer=CHUNK)
 
     data = wf.readframes(CHUNK)
 
@@ -182,3 +217,7 @@ def play_sound(file_path='temp.wav'):
     stream.close()
     p.terminate()
     return
+
+def play_sound_mp3(file_path='temp.mp3'):
+    Play_mp3.play(file_path)
+    os.remove()
